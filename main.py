@@ -1,7 +1,6 @@
 
 import os
 from elasticsearch import Elasticsearch
-from prompts import prompts
 from openai import AzureOpenAI
 import streamlit as st
 from dotenv import load_dotenv
