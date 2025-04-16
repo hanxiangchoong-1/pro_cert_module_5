@@ -74,7 +74,6 @@ def create_RAG_context(results, query):
 
 st.set_page_config(layout="wide")
 
-conversation_length=5
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
