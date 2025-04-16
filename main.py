@@ -1,21 +1,18 @@
 
 import os
 from elasticsearch import Elasticsearch
-from openai import AzureOpenAI
+from openai import OpenAI
 import streamlit as st
 from dotenv import load_dotenv
+import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 load_dotenv()
 
-from datetime import datetime, timezone
-
-class AzureOpenAIClient:
+class OpenAIClient:
     def __init__(self):
-        self.client = AzureOpenAI(
-            api_key=os.environ.get("AZURE_OPENAI_KEY_1"),
-            api_version="2024-06-01",
-            azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT")
+        self.client = OpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY")
         )
 
     def generate_streaming_response(self, prompt, model="gpt-4o", system_prompt=""):
@@ -133,10 +130,10 @@ try:
 except Exception as e:
     es_client=None
 
-LLM = AzureOpenAIClient()
+LLM = OpenAIClient()
 
-# Page config
-st.set_page_config(layout="wide", page_title="Streamlit Chat App")
+st.set_page_config(layout="wide")
+
 
 index="fsi_cna_business_processed"
 es_size=5
@@ -157,13 +154,13 @@ if prompt := st.chat_input("Start Chatting!"):
 
     with st.spinner("Generating Response..."):
         
-        elasticsearch_results = get_elasticsearch_results(es_client, prompt, index, es_size)
-        RAG_context = create_RAG_context(elasticsearch_results, prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt, "RAG_context": RAG_context, "time": get_current_time()})
+        # elasticsearch_results = get_elasticsearch_results(es_client, prompt, index, es_size)
+        # RAG_context = create_RAG_context(elasticsearch_results, prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt, "RAG_context": "", "time": get_current_time()})
 
-        conversation_prompt = create_conversational_prompt(st.session_state.messages, conversation_length=conversation_length)
+        # conversation_prompt = create_conversational_prompt(st.session_state.messages, conversation_length=conversation_length)
 
-        assistant_response = LLM.generate_streaming_response(conversation_prompt)
+        assistant_response = LLM.generate_streaming_response(prompt)
 
     st.session_state.messages.append({"role": "assistant", "content": assistant_response, "RAG_context": "", "time": get_current_time()})
     st.rerun()
