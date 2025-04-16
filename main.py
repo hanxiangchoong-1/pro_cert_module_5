@@ -1,7 +1,6 @@
 
 import os
 from elasticsearch import Elasticsearch
-from openai import OpenAI
 import streamlit as st
 from dotenv import load_dotenv
 import os
@@ -9,79 +8,33 @@ import json
 from datetime import datetime, timezone
 load_dotenv()
 
-class OpenAIClient:
-    def __init__(self):
-        self.client = OpenAI(
-            api_key=os.environ.get("OPENAI_API_KEY")
-        )
+try:
+    # Elasticsearch setup
+    es_endpoint = os.environ.get("ELASTIC_ENDPOINT")
+    es_client = Elasticsearch(
+        es_endpoint,
+        api_key=os.environ.get("ELASTIC_API_KEY")
+    )
+except Exception as e:
+    es_client=None
 
-    def generate_streaming_response(self, prompt, model="gpt-4o", system_prompt=""):
-        response_text = ""
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            for chunk in self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                stream=True,
-                max_tokens=4096
-            ):
-                if len(chunk.choices) > 0:
-                    if chunk.choices[0].delta.content is not None:
-                        response_text += chunk.choices[0].delta.content
-                        message_placeholder.markdown(response_text + "▌")
-        return response_text
+def es_chat_completion(prompt):
+    response = es_client.inference.inference(
+        inference_id = os.environ.get("INFERENCE_ID"),
+        task_type = "completion",
+        input = prompt,
+        timeout="90s"
+    )
+    return response['completion'][0]['result']
 
 def get_current_time():
     return datetime.now(timezone.utc).isoformat()
 
-def create_conversational_prompt(history, conversation_length=10):
-    conversational_prompt="" 
-    for segment in history[-conversation_length:]:
-        if segment["RAG_context"] != "":
-            conversational_prompt+=f'''
-{segment["role"]}:
-{segment["RAG_context"]}
-''' 
-        else:
-            conversational_prompt+=f'''
-{segment["role"]}:
-{segment["content"]}
-''' 
-    return conversational_prompt
+def get_elasticsearch_results(es_client, query):
 
-def get_elasticsearch_results(es_client, query, index, size):
+    es_query = # FILL IN THE QUERY - Use the Query from Kibana Playground :D #
 
-    es_query = {
-        "retriever": {
-            "standard": {
-                "query": {
-                    "nested": {
-                        "path": "processed_article_content.inference.chunks",
-                        "query": {
-                            "sparse_vector": {
-                                "inference_id": "elser_v2",
-                                "field": "processed_article_content.inference.chunks.embeddings",
-                                "query": query
-                            }
-                        },
-                        "inner_hits": {
-                            "size": 2,
-                            "name": "fsi_cna_business_processed.processed_article_content",
-                            "_source": [
-                                "processed_article_content.inference.chunks.text"
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "size": 10
-    }
-
-    result = es_client.search(index=index, body=es_query)
+    result = es_client.search(body=es_query)
     return result["hits"]["hits"]
 
 def create_RAG_context(results, query):
@@ -120,25 +73,9 @@ def create_RAG_context(results, query):
     """
     return prompt
 
-try:
-    # Elasticsearch setup
-    es_endpoint = os.environ.get("ELASTIC_ENDPOINT")
-    es_client = Elasticsearch(
-        es_endpoint,
-        api_key=os.environ.get("ELASTIC_API_KEY")
-    )
-except Exception as e:
-    es_client=None
-
-LLM = OpenAIClient()
-
 st.set_page_config(layout="wide")
 
-
-index="fsi_cna_business_processed"
-es_size=5
 conversation_length=5
-# CHAT WINDOW 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
@@ -154,13 +91,10 @@ if prompt := st.chat_input("Start Chatting!"):
 
     with st.spinner("Generating Response..."):
         
-        # elasticsearch_results = get_elasticsearch_results(es_client, prompt, index, es_size)
-        # RAG_context = create_RAG_context(elasticsearch_results, prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt, "RAG_context": "", "time": get_current_time()})
-
-        # conversation_prompt = create_conversational_prompt(st.session_state.messages, conversation_length=conversation_length)
-
-        assistant_response = LLM.generate_streaming_response(prompt)
+        elasticsearch_results = get_elasticsearch_results(es_client, prompt)
+        RAG_context = create_RAG_context(elasticsearch_results, prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt, "RAG_context": RAG_context, "time": get_current_time()})
+        assistant_response = es_chat_completion(prompt)
 
     st.session_state.messages.append({"role": "assistant", "content": assistant_response, "RAG_context": "", "time": get_current_time()})
     st.rerun()
