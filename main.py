@@ -1,4 +1,3 @@
-
 import os
 from elasticsearch import Elasticsearch
 import streamlit as st
@@ -23,7 +22,7 @@ def es_chat_completion(prompt):
         inference_id = os.environ.get("INFERENCE_ID"),
         task_type = "completion",
         input = prompt,
-        timeout="90s"
+        timeout="180s"
     )
     return response['completion'][0]['result']
 
