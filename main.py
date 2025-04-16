@@ -8,9 +8,6 @@ import json
 from datetime import datetime
 load_dotenv()
 
-import openlit
-openlit.init(application_name="LLMChatApp",environment="Production")
-
 from datetime import datetime, timezone
 
 class AzureOpenAIClient:
@@ -138,13 +135,8 @@ except Exception as e:
 
 LLM = AzureOpenAIClient()
 
-st.set_page_config(layout="wide")
-# set_page_container_style()
-
-# selected_indices=[]
-# # LEFT SIDEBAR
-# with st.sidebar:
-#     st.title("Chat Settings")
+# Page config
+st.set_page_config(layout="wide", page_title="Streamlit Chat App")
 
 index="fsi_cna_business_processed"
 es_size=5

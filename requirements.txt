@@ -1,5 +1,4 @@
 streamlit==1.37.1
-elastic-transport==8.17.0
 elasticsearch==8.17.1
 openai==1.55.0
-openai-realtime-client==0.1.0
+dotenv
